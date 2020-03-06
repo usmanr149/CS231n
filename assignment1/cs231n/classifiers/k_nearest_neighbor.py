@@ -77,7 +77,8 @@ class KNearestNeighbor(object):
                 #####################################################################
                 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
                 v_sub = X[i] - self.X_train[j]
-                dists[i,j] = np.sqrt(np.matmul(v_sub, v_sub.T))
+                dists[i, j] = np.sqrt(v_sub.dot(v_sub))
+                # dists[i,j] = np.sqrt(np.matmul(v_sub, v_sub.T))
 
                 # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
