@@ -100,6 +100,10 @@ class TwoLayerNet(object):
         # a = np.matmul(X.reshape(self.input_dim, self.num_classes), self.params['W1']) + self.params['b1']
         # a = affine_forward(X, self.params['W1'], self.params['b1'])
 
+        N = X.shape[0]
+        X = np.reshape(X, [N, -1])  # Flatten images.
+
+
         a = np.matmul(X, self.params['W1']) + self.params['b1']
         a[a < 0] = 0
         b = a
@@ -129,8 +133,6 @@ class TwoLayerNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        N = X.shape[0]
 
         ytrue_class_prob = np.array([[i, y] for i, y in enumerate(y)])
         # scores -= np.max(scores, axis=1).reshape(N, 1)
@@ -328,7 +330,7 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         N = X.shape[0]
-        X = np.reshape(X, [N, -1])  # Flatten our input images.
+        X = np.reshape(X, [N, -1])  # Flatten images.
 
         if self.num_layers > 1:
             # first layer
