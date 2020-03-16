@@ -251,9 +251,21 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        for i in range(self.num_layers):
-            self.params['W' + str(i+1)] = np.random.normal(0, weight_scale, (input_dim, hidden_dims[0]))
-            self.params['b' + str(i+1)] = np.zeros(hidden_dims[0])
+        self.cache = {}
+
+        # first layer weights
+        self.params['W1'] = np.random.normal(0, weight_scale, [input_dim, hidden_dims[0]])
+        self.params['b1'] = np.zeros([hidden_dims[0]])
+
+        for i in range(1, self.num_layers - 1):
+            self.params['W' + str(i+1)] = np.random.normal(0, weight_scale, [hidden_dims[i - 1], hidden_dims[i]])
+            self.params['b' + str(i+1)] = np.zeros([hidden_dims[i]])
+
+        # the final layer
+        self.params['W' + str(self.num_layers)] = np.random.normal(0, weight_scale,
+                                                                   [hidden_dims[self.num_layers - 2],
+                                                                    num_classes])
+        self.params['b' + str(self.num_layers)] = np.zeros([num_classes])
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -315,8 +327,31 @@ class FullyConnectedNet(object):
         # layer, etc.                                                              #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        N = X.shape[0]
+        X = np.reshape(X, [N, -1])  # Flatten our input images.
 
-        pass
+        if self.num_layers > 1:
+            # first layer
+            self.cache['H1'] = X.dot(self.params['W1']) + self.params['b1']
+            self.cache['A1'] = np.maximum(0, self.cache['H1'])
+            # self.params['H1'][self.params['H1'] < 0] = 0
+
+            #Intermediate hidden laters
+            for i in range(1, self.num_layers - 1):
+                    self.cache['H' + str(i+1)] = self.cache['A' + str(i)].dot(self.params['W' + str(i+1)]) + \
+                                                  self.params['b' + str(i+1)]
+                    self.cache['A' + str(i + 1)] = np.maximum(0, self.cache['H' + str(i+1)])
+
+            # output layer
+            self.cache['H' + str(self.num_layers)] = \
+                self.cache['A' + str(self.num_layers - 1)].dot(self.params['W' + str(self.num_layers)]) \
+                + self.params['b' + str(self.num_layers)]
+            self.cache['A' + str(self.num_layers)] = self.cache['H' + str(self.num_layers)]
+            scores = self.cache['A' + str(self.num_layers)]
+            # self.params['A' + str(self.num_layers)] = np.maximum(0, self.params['H' + str(self.num_layers)])
+
+        else:
+            pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -342,8 +377,47 @@ class FullyConnectedNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        d = np.exp(self.cache['A' + str(self.num_layers)])
+        f = d[np.arange(N), y] / np.sum(d, axis=1).reshape(1, N)
 
-        pass
+        p_ = -np.log(f)
+        loss = np.sum(p_)
+        loss /= N
+        for i in range(self.num_layers):
+            loss += 0.5 * self.reg * (np.sum(self.params['W' + str(i + 1)] * self.params['W' + str(i + 1)]) )
+
+        cache = {}
+        cache['A' + str(self.num_layers)] = d / np.sum(d, axis=1, keepdims=True)
+
+        cache['A' + str(self.num_layers)][np.arange(N), y] -= 1
+
+        cache['A' + str(self.num_layers)] /= N
+        cache['H' + str(self.num_layers)] = cache['A' + str(self.num_layers)]
+
+        # first backward pass
+        grads['W' + str(self.num_layers)] = \
+            self.cache['A' + str(self.num_layers - 1)].T.dot(cache['H' + str(self.num_layers)]) + \
+            self.reg*self.params['W' + str(self.num_layers)]
+
+        grads['b' + str(self.num_layers)] = np.sum(cache['H' + str(self.num_layers)], axis=0)
+
+        for i in range(self.num_layers - 1, 0, -1):
+            if i != 1:
+                cache['A' + str(i)] = cache['H' + str(i + 1)].dot(self.params['W' + str(i + 1)].T)
+                cache['H' + str(i)] = cache['A' + str(i)] * np.where(self.cache['A' + str(i)] <= 0, 0, 1)
+
+
+                grads['W' + str(i)] = self.cache['A' + str(i - 1)].T.dot(cache['H' + str(i)]) + \
+                                      self.reg * self.params['W' + str(i)]
+                grads['b' + str(i)] = np.sum(cache['H' + str(i)], axis=0)
+
+            else:
+                cache['A' + str(i)] = cache['H' + str(i + 1)].dot(self.params['W' + str(i + 1)].T)
+                cache['H' + str(i)] = cache['A' + str(i)] * np.where(self.cache['A' + str(i)] <= 0, 0, 1)
+
+                grads['W' + str(i)] = X.T.dot(cache['H' + str(i)]) + self.reg*self.params['W' + str(i)]
+                grads['b' + str(i)] = np.sum(cache['H' + str(i)], axis=0)
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
