@@ -290,7 +290,7 @@ class FullyConnectedNet(object):
         # pass of the second batch normalization layer, etc.
         self.bn_params = []
         if self.normalization=='batchnorm':
-            self.bn_params = [{'mode': 'train'} for i in range(self.num_layers - 1)]
+            self.bn_params = [{'mode': 'train', 'mode'} for i in range(self.num_layers - 1)]
         if self.normalization=='layernorm':
             self.bn_params = [{} for i in range(self.num_layers - 1)]
 
@@ -332,28 +332,25 @@ class FullyConnectedNet(object):
         N = X.shape[0]
         X = np.reshape(X, [N, -1])  # Flatten images.
 
-        if self.num_layers > 1:
-            # first layer
-            self.cache['H1'] = X.dot(self.params['W1']) + self.params['b1']
-            self.cache['A1'] = np.maximum(0, self.cache['H1'])
-            # self.params['H1'][self.params['H1'] < 0] = 0
+        # first layer
+        self.cache['H1'] = X.dot(self.params['W1']) + self.params['b1']
+        self.cache['A1'] = np.maximum(0, self.cache['H1'])
+        # self.params['H1'][self.params['H1'] < 0] = 0
 
-            #Intermediate hidden laters
-            for i in range(1, self.num_layers - 1):
-                    self.cache['H' + str(i+1)] = self.cache['A' + str(i)].dot(self.params['W' + str(i+1)]) + \
-                                                  self.params['b' + str(i+1)]
-                    self.cache['A' + str(i + 1)] = np.maximum(0, self.cache['H' + str(i+1)])
+        #Intermediate hidden laters
+        for i in range(1, self.num_layers - 1):
+            self.cache['H' + str(i+1)] = self.cache['A' + str(i)].dot(self.params['W' + str(i+1)]) + \
+                                              self.params['b' + str(i+1)]
+            self.cache['A' + str(i + 1)] = np.maximum(0, self.cache['H' + str(i+1)])
 
-            # output layer
-            self.cache['H' + str(self.num_layers)] = \
-                self.cache['A' + str(self.num_layers - 1)].dot(self.params['W' + str(self.num_layers)]) \
-                + self.params['b' + str(self.num_layers)]
-            self.cache['A' + str(self.num_layers)] = self.cache['H' + str(self.num_layers)]
-            scores = self.cache['A' + str(self.num_layers)]
-            # self.params['A' + str(self.num_layers)] = np.maximum(0, self.params['H' + str(self.num_layers)])
+        # output layer
+        self.cache['H' + str(self.num_layers)] = \
+            self.cache['A' + str(self.num_layers - 1)].dot(self.params['W' + str(self.num_layers)]) \
+            + self.params['b' + str(self.num_layers)]
+        self.cache['A' + str(self.num_layers)] = self.cache['H' + str(self.num_layers)]
+        scores = self.cache['A' + str(self.num_layers)]
+        # self.params['A' + str(self.num_layers)] = np.maximum(0, self.params['H' + str(self.num_layers)])
 
-        else:
-            pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

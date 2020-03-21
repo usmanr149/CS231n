@@ -93,7 +93,7 @@ class TwoLayerNet(object):
         b = a
 
         # second layer activation
-        c = np.matmul(b, W2) + b2
+        scores = np.matmul(b, W2) + b2
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -112,7 +112,7 @@ class TwoLayerNet(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         ytrue_class_prob = np.array([[i, y] for i, y in enumerate(y)])
-        d = np.exp(c)
+        d = np.exp(scores)
         f = d[ytrue_class_prob[:, 0], ytrue_class_prob[:, 1]] / np.sum(d, axis=1).reshape(1, N)
 
         p_ = -np.log(f)
@@ -132,11 +132,11 @@ class TwoLayerNet(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # N * C
-        grad_L_wrt_c = d/np.sum(d, axis=1, keepdims=True)
+        grad_L_wrt_scores = d/np.sum(d, axis=1, keepdims=True)
         # print('grad_L_wrt_c: ', grad_L_wrt_c)
 
-        grad_L_wrt_c[ytrue_class_prob[:, 0], ytrue_class_prob[:, 1]] -= 1
-        grad_L_wrt_c /= N
+        grad_L_wrt_scores[ytrue_class_prob[:, 0], ytrue_class_prob[:, 1]] -= 1
+        grad_L_wrt_scores /= N
         # print('grad_L_wrt_c: ', grad_L_wrt_c)
         # N * C
         grad_L_wrt_W2 = b.T.dot(grad_L_wrt_c)
