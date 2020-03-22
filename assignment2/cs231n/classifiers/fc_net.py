@@ -258,10 +258,16 @@ class FullyConnectedNet(object):
         # first layer weights
         self.params['W1'] = np.random.normal(0, weight_scale, [input_dim, hidden_dims[0]])
         self.params['b1'] = np.zeros([hidden_dims[0]])
+        if self.normalization=='batchnorm':
+            self.params['gamma0'] = np.random.randn(hidden_dims[0])
+            self.params['beta0'] = np.random.randn(hidden_dims[0])
 
         for i in range(1, self.num_layers - 1):
             self.params['W' + str(i+1)] = np.random.normal(0, weight_scale, [hidden_dims[i - 1], hidden_dims[i]])
             self.params['b' + str(i+1)] = np.zeros([hidden_dims[i]])
+            if self.normalization == 'batchnorm':
+                self.params['gamma' + str(i)] = np.random.randn(hidden_dims[i])
+                self.params['beta' + str(i)] = np.random.randn(hidden_dims[i])
 
         # the final layer
         self.params['W' + str(self.num_layers)] = np.random.normal(0, weight_scale,
@@ -290,14 +296,15 @@ class FullyConnectedNet(object):
         # pass of the second batch normalization layer, etc.
         self.bn_params = []
         if self.normalization=='batchnorm':
-            self.bn_params = [{'mode': 'train'} for i in range(self.num_layers - 1)]
+            self.bn_params = [{'mode': 'train', i:{'eps': None, 'momentum': None,
+                                                   'running_mean': None, 'running_var': None,
+                                  'cache': {}}} for i in range(self.num_layers - 1)]
         if self.normalization=='layernorm':
             self.bn_params = [{} for i in range(self.num_layers - 1)]
 
         # Cast all parameters to the correct datatype
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
-
 
     def loss(self, X, y=None):
         """
@@ -334,6 +341,9 @@ class FullyConnectedNet(object):
 
         # first layer
         self.cache['H1'] = X.dot(self.params['W1']) + self.params['b1']
+        if self.normalization == 'batchnorm':
+            self.cache['H1'], self.bn_params[0]['cache'] = batchnorm_forward(self.cache['H1'], self.params['gamma0'],
+                                                                            self.params['beta0'], self.bn_params[0])
         self.cache['A1'] = np.maximum(0, self.cache['H1'])
         # self.params['H1'][self.params['H1'] < 0] = 0
 
@@ -341,6 +351,10 @@ class FullyConnectedNet(object):
         for i in range(1, self.num_layers - 1):
             self.cache['H' + str(i+1)] = self.cache['A' + str(i)].dot(self.params['W' + str(i+1)]) + \
                                               self.params['b' + str(i+1)]
+            if self.normalization=='batchnorm':
+                self.cache['H' + str(i+1)], self.bn_params[i]['cache'] = batchnorm_forward(self.cache['H' + str(i+1)], \
+                            self.params['gamma' + str(i)], self.params['beta' + str(i)], self.bn_params[i])
+
             self.cache['A' + str(i + 1)] = np.maximum(0, self.cache['H' + str(i+1)])
 
         # output layer
@@ -404,15 +418,19 @@ class FullyConnectedNet(object):
             if i != 1:
                 cache['A' + str(i)] = cache['H' + str(i + 1)].dot(self.params['W' + str(i + 1)].T)
                 cache['H' + str(i)] = cache['A' + str(i)] * np.where(self.cache['A' + str(i)] <= 0, 0, 1)
-
+                if self.normalization == 'batchnorm':
+                    cache['H' + str(i)], grads['gamma' + str(i - 1)], grads['beta' + str(i - 1)] = \
+                        batchnorm_backward_alt(cache['H' + str(i)], self.bn_params[i-1]['cache'])
 
                 grads['W' + str(i)] = self.cache['A' + str(i - 1)].T.dot(cache['H' + str(i)]) + \
                                       self.reg * self.params['W' + str(i)]
                 grads['b' + str(i)] = np.sum(cache['H' + str(i)], axis=0)
-
             else:
                 cache['A' + str(i)] = cache['H' + str(i + 1)].dot(self.params['W' + str(i + 1)].T)
                 cache['H' + str(i)] = cache['A' + str(i)] * np.where(self.cache['A' + str(i)] <= 0, 0, 1)
+                if self.normalization == 'batchnorm':
+                    cache['H' + str(i)], grads['gamma' + str(i - 1)], grads['beta' + str(i - 1)] = \
+                        batchnorm_backward_alt(cache['H' + str(i)], self.bn_params[i - 1]['cache'])
 
                 grads['W' + str(i)] = X.T.dot(cache['H' + str(i)]) + self.reg*self.params['W' + str(i)]
                 grads['b' + str(i)] = np.sum(cache['H' + str(i)], axis=0)

@@ -206,6 +206,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         sample_mean = x.mean(axis=0)
+
         running_mean = momentum * running_mean + (1 - momentum) * sample_mean
 
         sample_var = x.var(axis=0)
@@ -280,10 +281,6 @@ def batchnorm_backward(dout, cache):
     # might prove to be helpful.                                              #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-    # print(cache)
-    # print(dout)
-    # print(cache['gamma'])
-    # input('Press Enter ...')
 
     dgamma = np.sum(dout*cache['x_norm'], axis = 0)
     dbeta = np.sum(dout, axis = 0)
@@ -386,7 +383,22 @@ def layernorm_forward(x, gamma, beta, ln_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    sample_mean = x.mean(axis=1)
+
+    sample_var = x.var(axis=1)
+
+    x_norm = ((x.T - sample_mean) / np.sqrt(sample_var + eps)).T
+    out = gamma * x_norm + beta
+
+    cache = {}
+    cache['gamma'] = gamma
+    cache['beta'] = beta
+    cache['x_norm'] = x_norm
+    cache['x'] = x
+    cache['sample_mean'] = sample_mean
+    cache['sample_var'] = sample_var
+    cache['eps'] = eps
+    cache['N'], cache['D'] = x.shape
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -421,13 +433,20 @@ def layernorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dgamma = np.sum(dout * cache['x_norm'], axis=0)
+    dbeta = np.sum(dout, axis=0)
+
+    v = cache['sample_var'] + cache['eps']
+
+    dx = ( (cache['gamma'] * dout).T / v ** (1 / 2)  ) - ((1 / ((cache['D'] * v ** (3 / 2))))*(\
+np.sum(dout * cache['gamma'], axis=1)*v + (cache['x'].T - cache['sample_mean'])* \
+np.sum( (dout*cache['gamma']).T * (cache['x'].T - cache['sample_mean']), axis=0)) )
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    return dx, dgamma, dbeta
+    return dx.T, dgamma, dbeta
 
 
 def dropout_forward(x, dropout_param):
