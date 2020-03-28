@@ -331,6 +331,7 @@ def batchnorm_backward_alt(dout, cache):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     dgamma = np.sum(dout * cache['x_norm'], axis=0)
+    print('dgamma: ', dgamma)
     dbeta = np.sum(dout, axis=0)
 
     v = cache['sample_var'] + cache['eps']
@@ -432,6 +433,15 @@ def layernorm_backward(dout, cache):
     # still apply!                                                            #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+
+    print('dout.shape: ', dout.shape)
+
+    for k, v in cache.items():
+        try:
+            print(k, v.shape)
+            print(v)
+        except:
+            pass
 
     dgamma = np.sum(dout * cache['x_norm'], axis=0)
     dbeta = np.sum(dout, axis=0)
@@ -921,13 +931,12 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     sample_mean = np.zeros((N, G, C // G, H*W))
     sample_var = np.zeros((N, G, C // G, H*W))
 
+    # layer norm is acros rows
     for n in range(N):
         for g in range(G):
             for c in range(C // G):
                 sample_mean[n, g, c] = x[n, g, c].mean(axis=0, keepdims=True)
-
                 sample_var[n, g, c] = x[n, g, c].var(axis=0, keepdims=True)
-
                 x_norm[n, g, c] += ((x[n, g, c] - sample_mean[n, g, c]) / np.sqrt(sample_var[n, g, c] + eps))
 
     x = x.reshape(N, C, H, W)
@@ -987,53 +996,37 @@ def spatial_groupnorm_backward(dout, cache):
 
     N, C, H, W = x.shape
 
-    for k, v in cache.items():
-        try:
-            print('key {} and shape {}'.format(k,v.shape))
-        except:
-            pass
-
     # dout = dout.reshape(N, G, C // G, H, W)
     dx = np.zeros((N, G, C // G, H, W))
     dgamma = np.zeros(gamma.shape)
     dbeta = np.zeros(beta.shape)
 
-
-    v = cache['sample_var'] + cache['eps']
-    print(v.shape)
+    dx = np.zeros((N, C, H * W))
+    x = x.reshape(N, C, H * W)
+    x_norm = x_norm.reshape(N, C, H * W)
+    sample_mean = sample_mean.reshape(N, C, H * W)
+    dout = dout.reshape(N, C, H * W)
+    sample_var = sample_var.reshape(N, C, H * W)
+    v = sample_var + cache['eps']
+    D = H*W
+    step = C // G
 
     for n in range(N):
-        for c in range(C):
-            dgamma[0, c, 0, 0] += np.sum(dout[n, c] * x_norm[n, c] )
-            dbeta[0, c, 0, 0] += np.sum(dout[n,c])
+        dgamma[0, :, 0, 0] += np.sum(
+            dout[n, :] * x_norm[n, :], axis=1)
+        dbeta[0, :, 0, 0] += np.sum(dout[n, :], axis=1)
+        for s in range(C):
+            for d in range(D):
+                dx[n, s, d] = (gamma[0, s, 0, 0] * dout[n, s, d]) / v[n, s, d] ** (1 / 2) - (
+                            (1 / ((D * v[n, s, d] ** (3 / 2)))) * ( \
+                                np.sum(
+                                    gamma[0, s, 0, 0] * dout[n, s, :]) *
+                                v[n, s, d] + (x[n, s, d] - sample_mean[n, s, d]) * \
+                                np.sum((dout[n, s, :] * gamma[0, s, 0,
+                                                                              0]) * (
+                                                   x[n, s, :] - sample_mean[n, s, d]))))
 
-    # dout = dout.reshape(N, G, C // G, H, W)
-    # dx = np.zeros((N, G, C // G, H*W))
-
-    dx = np.zeros((N, C, H*W))
-    x = x.reshape(N, C, H*W)
-    x_norm = x_norm.reshape(N, C, H*W)
-    sample_mean = sample_mean.reshape(N, C, H*W)
-    dout = dout.reshape(N, C, H*W)
-    sample_mean = sample_mean.reshape(N, C, H*W)
-    # dout = dout.reshape(N, C, H * W)
-
-    # print('G: ', G)
-    # print('C//G: ', C//G)
-
-    step = C//G
-    for n in range(N):
-        for g in range(G):
-            dx[n, step*g:(g+1)*step], _, _= layernorm_backward(dout[n, step*g:(g+1)*step], cache={
-                'gamma': gamma[0, step*g:(g+1)*step], 'sample_mean': sample_mean[n, step*g:(g+1)*step],
-                'sample_var': sample_var[n, step*g:(g+1)*step], 'D': H*W, 'x_norm': x_norm[n, step*g:(g+1)*step],
-                'x': x[n, step*g:(g+1)*step], 'eps': eps
-            })
-
-    # dx = ( (cache['gamma'] * dout).T / v ** (1 / 2)  ) - ((1 / ((cache['D'] * v ** (3 / 2))))*(\
-    # np.sum(dout * cache['gamma'], axis=1)*v + (cache['x'].T - cache['sample_mean'])* \
-    # np.sum( (dout*cache['gamma']).T * (cache['x'].T - cache['sample_mean']), axis=0)) )
-
+    dx = dx.reshape(N, C, H, W)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
