@@ -284,8 +284,13 @@ class FullyConnectedNet(object):
         # dropout layer so that the layer knows the dropout probability and the mode
         # (train / test). You can pass the same dropout_param to each dropout layer.
         self.dropout_param = {}
+
         if self.use_dropout:
             self.dropout_param = {'mode': 'train', 'p': dropout}
+            # create dropout_param_cache
+            self.dropout_param_cache = {}
+            for i in range(self.num_layers - 1):
+                self.dropout_param_cache['mask' + str(i)] = None
             if seed is not None:
                 self.dropout_param['seed'] = seed
 
@@ -344,8 +349,17 @@ class FullyConnectedNet(object):
         if self.normalization == 'batchnorm':
             self.cache['H1'], self.bn_params[0]['cache'] = batchnorm_forward(self.cache['H1'], self.params['gamma0'],
                                                                             self.params['beta0'], self.bn_params[0])
+
         self.cache['A1'] = np.maximum(0, self.cache['H1'])
         # self.params['H1'][self.params['H1'] < 0] = 0
+
+        # Dropout is applied after ReLU
+        if self.use_dropout:
+            # print('dropout cache before: ', self.dropout_param_cache['mask0'])
+            # input('Press Enter ...')
+            self.cache['A1'], self.dropout_param_cache['mask0'] = dropout_forward(self.cache['A1'], self.dropout_param)
+            # print('dropout cache 0: ', self.dropout_param_cache['mask0'])
+            # input('Press Enter ...')
 
         #Intermediate hidden laters
         for i in range(1, self.num_layers - 1):
@@ -356,6 +370,11 @@ class FullyConnectedNet(object):
                             self.params['gamma' + str(i)], self.params['beta' + str(i)], self.bn_params[i])
 
             self.cache['A' + str(i + 1)] = np.maximum(0, self.cache['H' + str(i+1)])
+
+            # Dropout is applied after ReLU
+            if self.use_dropout:
+                self.cache['A' + str(i + 1)], self.dropout_param_cache['mask' +str(i)] = dropout_forward(self.cache['A' + str(i+1)],
+                                                                                      self.dropout_param)
 
         # output layer
         self.cache['H' + str(self.num_layers)] = \
@@ -417,16 +436,24 @@ class FullyConnectedNet(object):
         for i in range(self.num_layers - 1, 0, -1):
             if i != 1:
                 cache['A' + str(i)] = cache['H' + str(i + 1)].dot(self.params['W' + str(i + 1)].T)
+
+                if self.use_dropout:
+                    cache['A' + str(i)] = dropout_backward(cache['A' + str(i)], self.dropout_param_cache['mask' + str(i-1)])
+
                 cache['H' + str(i)] = cache['A' + str(i)] * np.where(self.cache['A' + str(i)] <= 0, 0, 1)
                 if self.normalization == 'batchnorm':
                     cache['H' + str(i)], grads['gamma' + str(i - 1)], grads['beta' + str(i - 1)] = \
                         batchnorm_backward_alt(cache['H' + str(i)], self.bn_params[i-1]['cache'])
+
 
                 grads['W' + str(i)] = self.cache['A' + str(i - 1)].T.dot(cache['H' + str(i)]) + \
                                       self.reg * self.params['W' + str(i)]
                 grads['b' + str(i)] = np.sum(cache['H' + str(i)], axis=0)
             else:
                 cache['A' + str(i)] = cache['H' + str(i + 1)].dot(self.params['W' + str(i + 1)].T)
+                if self.use_dropout:
+                    cache['A' + str(i)] = dropout_backward(cache['A' + str(i)], self.dropout_param_cache['mask' + str(i-1)])
+
                 cache['H' + str(i)] = cache['A' + str(i)] * np.where(self.cache['A' + str(i)] <= 0, 0, 1)
                 if self.normalization == 'batchnorm':
                     cache['H' + str(i)], grads['gamma' + str(i - 1)], grads['beta' + str(i - 1)] = \
