@@ -31,7 +31,8 @@ def affine_forward(x, w, b):
     input_shape = x.shape[1:]
     output_dim = b.shape[0]
 
-    out = np.matmul(x.reshape(num_inputs, np.prod(input_shape)), w.reshape(np.prod(input_shape), output_dim) ) + b
+    # reshaping beuse input is an RGB image from CIFAR-10 dataset
+    out = x.reshape(num_inputs, np.prod(input_shape)).dot(w) + b
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -68,7 +69,7 @@ def affine_backward(dout, cache):
     input_shape = x.shape[1:]
     output_dim = b.shape[0]
 
-    dx = dout.dot(w.reshape(np.prod(input_shape), output_dim).T)
+    dx = dout.dot(w.T)
     dx = dx.reshape(x.shape)
     dw = x.reshape(num_inputs, np.prod(input_shape)).T.dot(dout)
     db = np.sum(dout, axis = 0)
