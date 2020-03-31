@@ -92,25 +92,15 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        # first layer activation
-        # print('X.shape: ', X.shape)
-        # print("self.params['W1'].shape: ", self.params['W1'].shape)
-        # print("self.params['b1'].shape: ", self.params['b1'].shape)
-
-        # a = np.matmul(X.reshape(self.input_dim, self.num_classes), self.params['W1']) + self.params['b1']
-        # a = affine_forward(X, self.params['W1'], self.params['b1'])
-
         N = X.shape[0]
-        X = np.reshape(X, [N, -1])  # Flatten images.
 
+        # first layer activation
+        H_1, cache_H1 = affine_forward(X, self.params['W1'], self.params['b1'])
+        A_1, cache_relu = relu_forward(H_1)
 
-        a = np.matmul(X, self.params['W1']) + self.params['b1']
-        a[a < 0] = 0
-        b = a
 
         # second layer activation
-        scores = np.matmul(b, self.params['W2']) + self.params['b2']
-        # scores = affine_forward(b, self.params['W2'], self.params['b2'])
+        scores, cache_scores = affine_forward(A_1, self.params['W2'], self.params['b2'])
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -134,50 +124,15 @@ class TwoLayerNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        ytrue_class_prob = np.array([[i, y] for i, y in enumerate(y)])
-        # scores -= np.max(scores, axis=1).reshape(N, 1)
-        # print(scores)
-        d = np.exp(scores)
-        f = d[ytrue_class_prob[:, 0], ytrue_class_prob[:, 1]] / np.sum(d, axis=1).reshape(1, N)
+        loss, grad_L_wrt_scores = softmax_loss(scores, y)
+        loss += 0.5 * self.reg * (
+                    np.sum(self.params['W1'] * self.params['W1']) + np.sum(self.params['W2'] * self.params['W2']))
 
-        p_ = -np.log(f)
-        loss = np.sum(p_)
-        loss /= N
-        loss += 0.5 * self.reg * (np.sum(self.params['W1'] * self.params['W1']) + np.sum(self.params['W2'] * self.params['W2']))
-        # print('loss: ', loss)
+        grad_L_wrt_A_2, grad_L_wrt_W2, grad_L_wrt_b2 = affine_backward(grad_L_wrt_scores, cache_scores)
 
-        # N * C
-        grad_L_wrt_c = d / np.sum(d, axis=1, keepdims=True)
-        # print('grad_L_wrt_c: ', grad_L_wrt_c)
+        grad_L_wrt_H_1 = relu_backward(grad_L_wrt_A_2, cache_relu)
 
-        grad_L_wrt_c[ytrue_class_prob[:, 0], ytrue_class_prob[:, 1]] -= 1
-        grad_L_wrt_c /= N
-        # print('grad_L_wrt_c: ', grad_L_wrt_c)
-        # N * C
-        grad_L_wrt_W2 = b.T.dot(grad_L_wrt_c)
-        # print('grad_L_wrt_W2: ', grad_L_wrt_W2)
-
-        # N * h
-        grad_L_wrt_b = grad_L_wrt_c.dot(self.params['W2'].T)
-        # print('grad_L_wrt_b: ', grad_L_wrt_b)
-
-        grad_L_wrt_b2 = np.sum(grad_L_wrt_c, axis=0)
-        # print('grad_L_wrt_b2: ', grad_L_wrt_b2.shape)
-
-        grad_L_wrt_a = np.where(a <= 0, 0, 1) * grad_L_wrt_b
-        # print('grad_L_wrt_a: ', grad_L_wrt_a)
-
-        grad_L_wrt_W1 = X.T.dot(grad_L_wrt_a)
-        # print('grad_L_wrt_W1: ', grad_L_wrt_W1)
-
-        grad_L_wrt_X = grad_L_wrt_a.dot(self.params['W1'].T)
-        # print('grad_L_wrt_X: ', grad_L_wrt_X)
-
-        grad_L_wrt_b1 = np.sum(grad_L_wrt_a, axis=0)
-        # print('grad_L_wrt_b1: ', grad_L_wrt_b1.shape)
-
-        # print('grad_L_wrt_W1.shape: ', grad_L_wrt_W1.shape)
-        # print('grad_L_wrt_W2.shape: ', grad_L_wrt_W2.shape)
+        grad_L_wrt_X, grad_L_wrt_W1, grad_L_wrt_b1 = affine_backward(grad_L_wrt_H_1, cache_H1)
 
         grads['W1'] = grad_L_wrt_W1 + self.reg * self.params['W1']
         grads['b1'] = grad_L_wrt_b1
@@ -262,6 +217,7 @@ class FullyConnectedNet(object):
             self.params['gamma0'] = np.random.randn(hidden_dims[0])
             self.params['beta0'] = np.random.randn(hidden_dims[0])
 
+        # hidden layer
         for i in range(1, self.num_layers - 1):
             self.params['W' + str(i+1)] = np.random.normal(0, weight_scale, [hidden_dims[i - 1], hidden_dims[i]])
             self.params['b' + str(i+1)] = np.zeros([hidden_dims[i]])
