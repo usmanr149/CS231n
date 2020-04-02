@@ -301,7 +301,7 @@ class FullyConnectedNet(object):
         X = np.reshape(X, [N, -1])  # Flatten images.
 
         # first layer
-        self.cache['H1'] = X.dot(self.params['W1']) + self.params['b1']
+        self.cache['H1']= X.dot(self.params['W1']) + self.params['b1']
         if self.normalization == 'batchnorm':
             self.cache['H1'], self.bn_params[0]['cache'] = batchnorm_forward(self.cache['H1'], self.params['gamma0'],
                                                                             self.params['beta0'], self.bn_params[0])
