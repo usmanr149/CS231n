@@ -286,17 +286,35 @@ def batchnorm_backward(dout, cache):
     dgamma = np.sum(dout*cache['x_norm'], axis = 0)
     dbeta = np.sum(dout, axis = 0)
 
-    dx_hat = dout*cache['gamma']
+    x = cache['x']
+    mu =  cache['sample_mean']
+    sigma = cache['sample_var']
+    eps = cache['eps']
+    gamma = cache['gamma']
+    beta = cache['beta']
+    N = cache['N']
 
-    dsigma = (-1./2) * (cache['sample_var'] + cache['eps']) ** (-3. / 2) * \
-             np.sum(dx_hat * (cache['x'] - cache['sample_mean']), axis=0)
+    b = x - mu
+    c = sigma + eps
+    d = np.sqrt(c)
+    e = 1/d
+    f = b*e
+    g = gamma*f
+    y = g + beta
 
-    dmu = np.sum(dx_hat * (-1. / (np.sqrt(cache['sample_var'] + cache['eps']))), axis=0) + \
-          np.sum(2. * (cache['x'] - cache['sample_mean']), axis=0) / cache['N']
+    dx = -(2/N)*(x-mu)*np.sum( dout*gamma*b, axis = 0)*(1/d**2)*(1/2)*(1/np.sqrt(c))  - (1/N)*np.sum( dout*gamma*e , axis = 0) + dout*gamma*e
 
-    dx = dx_hat * (1. / (np.sqrt(cache['sample_var'] + cache['eps']))) + \
-         2. * dsigma * (cache['x'] - cache['sample_mean']) / cache['N'] + \
-         dmu * (1. / cache['N'])
+    # dx_hat = dout*cache['gamma']
+    #
+    # dsigma = (-1./2) * (cache['sample_var'] + cache['eps']) ** (-3. / 2) * \
+    #          np.sum(dx_hat * (cache['x'] - cache['sample_mean']), axis=0)
+    #
+    # dmu = np.sum(dx_hat * (-1. / (np.sqrt(cache['sample_var'] + cache['eps']))), axis=0) + \
+    #       np.sum(2. * (cache['x'] - cache['sample_mean']), axis=0) / cache['N']
+    #
+    # dx = dx_hat * (1. / (np.sqrt(cache['sample_var'] + cache['eps']))) + \
+    #      2. * dsigma * (cache['x'] - cache['sample_mean']) / cache['N'] + \
+    #      dmu * (1. / cache['N'])
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -332,14 +350,13 @@ def batchnorm_backward_alt(dout, cache):
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     dgamma = np.sum(dout * cache['x_norm'], axis=0)
-    print('dgamma: ', dgamma)
     dbeta = np.sum(dout, axis=0)
 
     v = cache['sample_var'] + cache['eps']
 
     dx = cache['gamma'] * (dout / v ** (1 / 2) - \
                            (1 / ((cache['N'] * v ** (3 / 2)))) * (np.sum(dout * v, axis=0) + (cache['x'] - cache['sample_mean'])
-                                                                  * np.sum(dout * (cache['x'] - cache['sample_mean']),axis=0)))
+                                                                  * np.sum(dout * (cache['x'] - cache['sample_mean']),axis=0) ) )
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -434,8 +451,6 @@ def layernorm_backward(dout, cache):
     # still apply!                                                            #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    print('dout.shape: ', dout.shape)
 
     for k, v in cache.items():
         try:
