@@ -607,23 +607,21 @@ def conv_forward_naive(x, w, b, conv_param):
     F, C, HH, WW = w.shape
     S, P = conv_param['stride'], conv_param['pad']
     output_d = (W - HH + 2*P)/S + 1
-
     # To make sure that dimensions work out
-    if output_d == int(output_d):
-        output_d = int(output_d)
-    else:
-        return
+    assert output_d == int(output_d)
+
+    output_d = int(output_d)
 
     output_volume = (N, F, output_d, output_d)
 
     V = np.zeros(output_volume)
 
-    X = np.zeros((N, C, H+2, W+2))
+    X = np.zeros((N, C, H+2*P, W+2*P))
 
     # add padding to x
     for i in range(x.shape[0]):
         for j in range(x.shape[1]):
-            X[i][j] = np.pad(x[i][j], 1, mode='constant')
+            X[i][j] = np.pad(x[i][j], P, mode='constant')
 
     for n in range(N):
         for f in range(F):
@@ -1038,8 +1036,7 @@ def spatial_groupnorm_backward(dout, cache):
                                 np.sum(
                                     gamma[0, s, 0, 0] * dout[n, s, :]) *
                                 v[n, s, d] + (x[n, s, d] - sample_mean[n, s, d]) * \
-                                np.sum((dout[n, s, :] * gamma[0, s, 0,
-                                                                              0]) * (
+                                np.sum((dout[n, s, :] * gamma[0, s, 0, 0]) * (
                                                    x[n, s, :] - sample_mean[n, s, d]))))
 
     dx = dx.reshape(N, C, H, W)
